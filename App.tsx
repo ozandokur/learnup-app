@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -9,41 +9,62 @@ import {
   View,
 } from 'react-native';
 
-const modules = [
-  {
-    id: 'basic-greetings',
-    title: 'Basic Greetings',
-    description: 'Learn simple greetings like hello, goodbye, and thank you.',
-    xp: 20,
-  },
-  {
-    id: 'introducing-yourself',
-    title: 'Introducing Yourself',
-    description: 'Learn how to say your name, age, and where you are from.',
-    xp: 20,
-  },
-  {
-    id: 'numbers-and-age',
-    title: 'Numbers and Age',
-    description: 'Practice numbers and simple age sentences.',
-    xp: 20,
-  },
-  {
-    id: 'daily-objects',
-    title: 'Daily Objects',
-    description: 'Learn common objects you see every day.',
-    xp: 20,
-  },
-  {
-    id: 'common-verbs',
-    title: 'Common Verbs',
-    description: 'Start using basic English verbs in short sentences.',
-    xp: 20,
-  },
-];
+import { lessons } from './data/lessons';
+import { modules, type Module } from './data/modules';
+import { quizzes, type QuizQuestion } from './data/quizzes';
+
+type Screen = 'welcome' | 'home' | 'lesson' | 'quiz' | 'result';
 
 export default function App() {
-  const [screen, setScreen] = useState<'welcome' | 'home'>('welcome');
+  const [screen, setScreen] = useState<Screen>('welcome');
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [correctCount, setCorrectCount] = useState(0);
+
+  const selectedLesson = useMemo(
+    () => lessons.find((lesson) => lesson.moduleId === selectedModule?.id),
+    [selectedModule]
+  );
+
+  const moduleQuestions = useMemo(
+    () => quizzes.filter((quiz) => quiz.moduleId === selectedModule?.id),
+    [selectedModule]
+  );
+
+  const currentQuestion: QuizQuestion | undefined = moduleQuestions[questionIndex];
+
+  const openLesson = (module: Module) => {
+    setSelectedModule(module);
+    setScreen('lesson');
+  };
+
+  const startQuiz = () => {
+    setQuestionIndex(0);
+    setSelectedAnswer(null);
+    setCorrectCount(0);
+    setScreen('quiz');
+  };
+
+  const chooseAnswer = (answer: string) => {
+    if (selectedAnswer || !currentQuestion) return;
+
+    setSelectedAnswer(answer);
+
+    if (answer === currentQuestion.answer) {
+      setCorrectCount((count) => count + 1);
+    }
+  };
+
+  const nextQuestion = () => {
+    if (questionIndex + 1 >= moduleQuestions.length) {
+      setScreen('result');
+      return;
+    }
+
+    setQuestionIndex((index) => index + 1);
+    setSelectedAnswer(null);
+  };
 
   if (screen === 'welcome') {
     return (
@@ -76,6 +97,138 @@ export default function App() {
 
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Giriş Yap</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'lesson' && selectedModule && selectedLesson) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
+        <ScrollView contentContainerStyle={styles.homeContent}>
+          <TouchableOpacity onPress={() => setScreen('home')}>
+            <Text style={styles.backText}>← Home</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.screenTitle}>{selectedModule.title}</Text>
+          <Text style={styles.screenSubtitle}>{selectedLesson.objective}</Text>
+
+          <Text style={styles.sectionTitle}>Vocabulary</Text>
+
+          {selectedLesson.vocabulary.map((item) => (
+            <View key={item.en} style={styles.wordCard}>
+              <View style={styles.wordRow}>
+                <Text style={styles.wordEnglish}>{item.en}</Text>
+                <Text style={styles.wordTurkish}>{item.tr}</Text>
+              </View>
+              <Text style={styles.exampleText}>{item.example}</Text>
+            </View>
+          ))}
+
+          <TouchableOpacity style={styles.primaryButton} onPress={startQuiz}>
+            <Text style={styles.primaryButtonText}>Quiz'e Başla →</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'quiz' && selectedModule && currentQuestion) {
+    const isAnswered = Boolean(selectedAnswer);
+
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
+        <View style={styles.quizContent}>
+          <View style={styles.quizTopRow}>
+            <TouchableOpacity onPress={() => setScreen('lesson')}>
+              <Text style={styles.backText}>← Lesson</Text>
+            </TouchableOpacity>
+            <Text style={styles.quizCounter}>
+              {questionIndex + 1} / {moduleQuestions.length}
+            </Text>
+          </View>
+
+          <View style={styles.progressBarBackground}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${((questionIndex + 1) / moduleQuestions.length) * 100}%` },
+              ]}
+            />
+          </View>
+
+          <Text style={styles.questionLabel}>{selectedModule.title}</Text>
+          <Text style={styles.questionText}>{currentQuestion.question}</Text>
+
+          {currentQuestion.options.map((option) => {
+            const isSelected = selectedAnswer === option;
+            const isCorrect = option === currentQuestion.answer;
+            const showCorrect = isAnswered && isCorrect;
+            const showWrong = isAnswered && isSelected && !isCorrect;
+
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.optionCard,
+                  showCorrect && styles.correctOption,
+                  showWrong && styles.wrongOption,
+                ]}
+                onPress={() => chooseAnswer(option)}
+              >
+                <Text style={styles.optionText}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {isAnswered && (
+            <View style={styles.feedbackBox}>
+              <Text style={styles.feedbackText}>
+                {selectedAnswer === currentQuestion.answer
+                  ? 'Doğru! Harika ilerliyorsun.'
+                  : `Yanlış. Doğru cevap: ${currentQuestion.answer}`}
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={[styles.primaryButton, !isAnswered && styles.disabledButton]}
+            onPress={nextQuestion}
+            disabled={!isAnswered}
+          >
+            <Text style={styles.primaryButtonText}>
+              {questionIndex + 1 >= moduleQuestions.length ? 'Sonucu Gör' : 'Sonraki Soru →'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (screen === 'result' && selectedModule) {
+    const scorePercent = Math.round((correctCount / moduleQuestions.length) * 100);
+
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
+        <View style={styles.resultContent}>
+          <Text style={styles.heroEmoji}>🎉</Text>
+          <Text style={styles.title}>Quiz Tamamlandı</Text>
+          <Text style={styles.subtitle}>{selectedModule.title}</Text>
+
+          <View style={styles.heroCard}>
+            <Text style={styles.heroTitle}>
+              {correctCount} / {moduleQuestions.length} doğru
+            </Text>
+            <Text style={styles.heroText}>Başarı oranın: %{scorePercent}</Text>
+            <Text style={styles.moduleXp}>+{selectedModule.xp} XP kazandın</Text>
+          </View>
+
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setScreen('home')}>
+            <Text style={styles.primaryButtonText}>Home'a Dön</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -117,7 +270,11 @@ export default function App() {
         <Text style={styles.sectionTitle}>Modüller</Text>
 
         {modules.map((module, index) => (
-          <TouchableOpacity key={module.id} style={styles.moduleCard}>
+          <TouchableOpacity
+            key={module.id}
+            style={styles.moduleCard}
+            onPress={() => openLesson(module)}
+          >
             <View style={styles.moduleNumber}>
               <Text style={styles.moduleNumberText}>{index + 1}</Text>
             </View>
@@ -211,6 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 18,
     alignItems: 'center',
+    marginTop: 14,
     marginBottom: 14,
   },
   primaryButtonText: {
@@ -364,5 +522,123 @@ const styles = StyleSheet.create({
   moduleXp: {
     color: PURPLE,
     fontWeight: '800',
+  },
+  backText: {
+    color: PURPLE,
+    fontWeight: '800',
+    fontSize: 16,
+    marginBottom: 18,
+  },
+  screenTitle: {
+    color: TEXT,
+    fontSize: 34,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  screenSubtitle: {
+    color: MUTED,
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  wordCard: {
+    backgroundColor: 'white',
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EEEAFB',
+  },
+  wordRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+  },
+  wordEnglish: {
+    color: TEXT,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  wordTurkish: {
+    color: PURPLE,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  exampleText: {
+    color: MUTED,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  quizContent: {
+    flex: 1,
+    padding: 20,
+  },
+  quizTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  quizCounter: {
+    color: PURPLE,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  questionLabel: {
+    color: PURPLE,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 32,
+    marginBottom: 8,
+  },
+  questionText: {
+    color: TEXT,
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+    marginBottom: 24,
+  },
+  optionCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#EEEAFB',
+  },
+  correctOption: {
+    borderColor: '#2EBD59',
+    backgroundColor: '#ECFFF2',
+  },
+  wrongOption: {
+    borderColor: '#E34B4B',
+    backgroundColor: '#FFF0F0',
+  },
+  optionText: {
+    color: TEXT,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  feedbackBox: {
+    backgroundColor: LIGHT_PURPLE,
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 8,
+  },
+  feedbackText: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  disabledButton: {
+    opacity: 0.45,
+  },
+  resultContent: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
   },
 });
