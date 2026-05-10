@@ -66,4 +66,59 @@ export const lessons: Lesson[] = [
       { en: 'Study', tr: 'Ders çalışmak', example: 'I study English.' },
     ],
   },
+  {
+    moduleId: 'family-members',
+    objective: 'Talk about family members with simple words.',
+    vocabulary: [
+      { en: 'Mother', tr: 'Anne', example: 'My mother is kind.' },
+      { en: 'Father', tr: 'Baba', example: 'My father is at home.' },
+      { en: 'Brother', tr: 'Erkek kardeş', example: 'I have one brother.' },
+      { en: 'Sister', tr: 'Kız kardeş', example: 'My sister is a student.' },
+      { en: 'Family', tr: 'Aile', example: 'My family is big.' },
+    ],
+  },
+  {
+    moduleId: 'food-and-drinks',
+    objective: 'Use common food and drink words.',
+    vocabulary: [
+      { en: 'Water', tr: 'Su', example: 'I drink water.' },
+      { en: 'Bread', tr: 'Ekmek', example: 'I eat bread.' },
+      { en: 'Apple', tr: 'Elma', example: 'This apple is red.' },
+      { en: 'Tea', tr: 'Çay', example: 'I drink tea in the morning.' },
+      { en: 'Coffee', tr: 'Kahve', example: 'She likes coffee.' },
+    ],
+  },
+  {
+    moduleId: 'days-and-time',
+    objective: 'Understand days and basic time expressions.',
+    vocabulary: [
+      { en: 'Today', tr: 'Bugün', example: 'Today is Monday.' },
+      { en: 'Tomorrow', tr: 'Yarın', example: 'Tomorrow is Tuesday.' },
+      { en: 'Morning', tr: 'Sabah', example: 'I study in the morning.' },
+      { en: 'Night', tr: 'Gece', example: 'Good night.' },
+      { en: 'Week', tr: 'Hafta', example: 'A week has seven days.' },
+    ],
+  },
+  {
+    moduleId: 'simple-questions',
+    objective: 'Ask simple English questions.',
+    vocabulary: [
+      { en: 'What', tr: 'Ne', example: 'What is your name?' },
+      { en: 'Where', tr: 'Nerede', example: 'Where are you from?' },
+      { en: 'Who', tr: 'Kim', example: 'Who is your teacher?' },
+      { en: 'When', tr: 'Ne zaman', example: 'When is the lesson?' },
+      { en: 'Why', tr: 'Neden', example: 'Why are you here?' },
+    ],
+  },
+  {
+    moduleId: 'mini-review',
+    objective: 'Review key beginner English words and sentences.',
+    vocabulary: [
+      { en: 'Hello, I am a student.', tr: 'Merhaba, ben öğrenciyim.', example: 'Hello, I am a student.' },
+      { en: 'I drink water.', tr: 'Su içerim.', example: 'I drink water every day.' },
+      { en: 'My family is big.', tr: 'Ailem büyük.', example: 'My family is big.' },
+      { en: 'Where are you from?', tr: 'Nerelisin?', example: 'Where are you from?' },
+      { en: 'I study English today.', tr: 'Bugün İngilizce çalışıyorum.', example: 'I study English today.' },
+    ],
+  },
 ];
