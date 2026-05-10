@@ -14,7 +14,7 @@ import { lessons } from './data/lessons';
 import { modules, type Module } from './data/modules';
 import { quizzes, type QuizQuestion } from './data/quizzes';
 
-type Screen = 'welcome' | 'home' | 'lesson' | 'quiz' | 'result';
+type Screen = 'welcome' | 'home' | 'lesson' | 'quiz' | 'result' | 'profile';
 type UserStats = {
   xp: number;
   streak: number;
@@ -93,6 +93,7 @@ export default function App() {
   const currentQuestion: QuizQuestion | undefined = moduleQuestions[questionIndex];
   const completedCount = stats.completedModuleIds.length;
   const progressPercent = Math.round((completedCount / modules.length) * 100);
+  const learnedWords = completedCount * 5;
 
   const openLesson = (module: Module) => {
     setSelectedModule(module);
@@ -154,13 +155,30 @@ export default function App() {
 
   const resetProgress = () => {
     setStats(initialStats);
-    setScreen('home');
+    setScreen('profile');
   };
 
-  const renderFrame = (children: ReactNode) => (
+  const renderBottomNav = () => (
+    <View style={styles.bottomNav}>
+      <TouchableOpacity style={styles.navItem} onPress={() => setScreen('home')}>
+        <Text style={[styles.navIcon, screen === 'home' && styles.activeNavText]}>🏠</Text>
+        <Text style={[styles.navText, screen === 'home' && styles.activeNavText]}>Today</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.navItem} onPress={() => setScreen('profile')}>
+        <Text style={[styles.navIcon, screen === 'profile' && styles.activeNavText]}>👤</Text>
+        <Text style={[styles.navText, screen === 'profile' && styles.activeNavText]}>Profile</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderFrame = (children: ReactNode, showNav = false) => (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <View style={styles.appFrame}>{children}</View>
+      <View style={styles.appFrame}>
+        <View style={styles.screenBody}>{children}</View>
+        {showNav && renderBottomNav()}
+      </View>
     </SafeAreaView>
   );
 
@@ -319,6 +337,69 @@ export default function App() {
     );
   }
 
+  if (screen === 'profile') {
+    return renderFrame(
+      <ScrollView contentContainerStyle={styles.homeContent}>
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>O</Text>
+          </View>
+          <Text style={styles.screenTitle}>Profil</Text>
+          <Text style={styles.screenSubtitle}>Beginner English öğrenme ilerlemen</Text>
+        </View>
+
+        <View style={styles.profileSummaryCard}>
+          <Text style={styles.profileSummaryTitle}>LevelUp Learner</Text>
+          <Text style={styles.profileSummaryText}>
+            {completedCount === 0
+              ? 'Henüz modül tamamlamadın. İlk dersini bitirerek streak başlat.'
+              : `${completedCount} modül tamamladın ve ${learnedWords} kelime pratiği yaptın.`}
+          </Text>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.cardLabel}>XP</Text>
+            <Text style={styles.statValue}>{stats.xp}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.cardLabel}>Streak</Text>
+            <Text style={styles.statValue}>{stats.streak} 🔥</Text>
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.cardLabel}>Modules</Text>
+            <Text style={styles.statValue}>{completedCount}/{modules.length}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.cardLabel}>Words</Text>
+            <Text style={styles.statValue}>{learnedWords}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Modül Durumu</Text>
+        {modules.map((module) => {
+          const isCompleted = stats.completedModuleIds.includes(module.id);
+          return (
+            <View key={module.id} style={styles.profileModuleRow}>
+              <Text style={styles.profileModuleTitle}>{module.title}</Text>
+              <Text style={[styles.profileModuleStatus, isCompleted && styles.completedStatus]}>
+                {isCompleted ? 'Completed' : 'Not started'}
+              </Text>
+            </View>
+          );
+        })}
+
+        <TouchableOpacity style={styles.resetButton} onPress={resetProgress}>
+          <Text style={styles.resetButtonText}>İlerlemeyi Sıfırla</Text>
+        </TouchableOpacity>
+      </ScrollView>,
+      true
+    );
+  }
+
   return renderFrame(
     <ScrollView contentContainerStyle={styles.homeContent}>
       <View style={styles.header}>
@@ -377,11 +458,8 @@ export default function App() {
           </TouchableOpacity>
         );
       })}
-
-      <TouchableOpacity style={styles.resetButton} onPress={resetProgress}>
-        <Text style={styles.resetButtonText}>İlerlemeyi Sıfırla</Text>
-      </TouchableOpacity>
-    </ScrollView>
+    </ScrollView>,
+    true
   );
 }
 
@@ -393,6 +471,7 @@ const MUTED = '#746F86';
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#EDE9F8', alignItems: 'center' },
   appFrame: { flex: 1, width: '100%', maxWidth: 430, backgroundColor: '#FBF9FF' },
+  screenBody: { flex: 1 },
   welcomeContent: { flex: 1, justifyContent: 'center', padding: 24 },
   logoBox: { width: 88, height: 88, borderRadius: 28, backgroundColor: PURPLE, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
   logoIcon: { color: 'white', fontSize: 44, fontWeight: '800' },
@@ -453,6 +532,21 @@ const styles = StyleSheet.create({
   feedbackText: { color: TEXT, fontSize: 15, fontWeight: '800' },
   disabledButton: { opacity: 0.45 },
   resultContent: { flex: 1, justifyContent: 'center', padding: 24 },
+  bottomNav: { height: 74, flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#EEEAFB', backgroundColor: 'white' },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navIcon: { fontSize: 20, marginBottom: 3, opacity: 0.65 },
+  navText: { color: MUTED, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+  activeNavText: { color: PURPLE, opacity: 1 },
+  profileHeader: { alignItems: 'center', marginTop: 16, marginBottom: 8 },
+  avatarCircle: { width: 86, height: 86, borderRadius: 28, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  avatarText: { color: 'white', fontSize: 38, fontWeight: '900' },
+  profileSummaryCard: { backgroundColor: LIGHT_PURPLE, borderRadius: 28, padding: 22, marginBottom: 16 },
+  profileSummaryTitle: { color: TEXT, fontSize: 22, fontWeight: '900', marginBottom: 8 },
+  profileSummaryText: { color: MUTED, fontSize: 15, lineHeight: 22, fontWeight: '700' },
+  profileModuleRow: { backgroundColor: 'white', borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#EEEAFB', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  profileModuleTitle: { color: TEXT, fontSize: 15, fontWeight: '900', flex: 1, marginRight: 12 },
+  profileModuleStatus: { color: MUTED, fontSize: 13, fontWeight: '900' },
+  completedStatus: { color: PURPLE },
   resetButton: { backgroundColor: 'transparent', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#DED8FF' },
   resetButtonText: { color: MUTED, fontSize: 14, fontWeight: '800' },
 });
