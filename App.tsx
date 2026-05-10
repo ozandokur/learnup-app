@@ -8,6 +8,7 @@ import { modules, type Module } from './data/modules';
 import { quizzes, type QuizQuestion } from './data/quizzes';
 
 type Screen = 'welcome' | 'home' | 'lesson' | 'quiz' | 'result' | 'profile';
+
 type UserStats = {
   xp: number;
   streak: number;
@@ -16,9 +17,16 @@ type UserStats = {
 };
 
 const STORAGE_KEY = 'levelup_english_stats_v1';
-const initialStats: UserStats = { xp: 0, streak: 0, lastCompletedDate: null, completedModuleIds: [] };
+const WORDS_PER_MODULE = 5;
+const initialStats: UserStats = {
+  xp: 0,
+  streak: 0,
+  lastCompletedDate: null,
+  completedModuleIds: [],
+};
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
 const getYesterdayKey = () => {
   const date = new Date();
   date.setDate(date.getDate() - 1);
@@ -38,7 +46,7 @@ const saveStats = async (stats: UserStats) => {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
   } catch {
-    // Best-effort local persistence.
+    // Local persistence is best-effort for this minimal MVP.
   }
 };
 
@@ -50,6 +58,7 @@ export default function App() {
   const [correctCount, setCorrectCount] = useState(0);
   const [stats, setStats] = useState<UserStats>(initialStats);
   const [hasLoadedStats, setHasLoadedStats] = useState(false);
+  const [lastEarnedXp, setLastEarnedXp] = useState(0);
 
   useEffect(() => {
     loadStats().then((savedStats) => {
@@ -75,7 +84,7 @@ export default function App() {
   const currentQuestion: QuizQuestion | undefined = moduleQuestions[questionIndex];
   const completedCount = stats.completedModuleIds.length;
   const progressPercent = Math.round((completedCount / modules.length) * 100);
-  const learnedWords = completedCount * 5;
+  const learnedWords = completedCount * WORDS_PER_MODULE;
 
   const openLesson = (module: Module) => {
     setSelectedModule(module);
@@ -86,6 +95,7 @@ export default function App() {
     setQuestionIndex(0);
     setSelectedAnswer(null);
     setCorrectCount(0);
+    setLastEarnedXp(0);
     setScreen('quiz');
   };
 
@@ -100,6 +110,7 @@ export default function App() {
 
     setStats((currentStats) => {
       const isAlreadyCompleted = currentStats.completedModuleIds.includes(selectedModule.id);
+      const earnedXp = isAlreadyCompleted ? 0 : selectedModule.xp;
       const today = getTodayKey();
       const yesterday = getYesterdayKey();
       const shouldUpdateStreak = currentStats.lastCompletedDate !== today;
@@ -109,8 +120,10 @@ export default function App() {
           : 1
         : currentStats.streak;
 
+      setLastEarnedXp(earnedXp);
+
       return {
-        xp: isAlreadyCompleted ? currentStats.xp : currentStats.xp + selectedModule.xp,
+        xp: currentStats.xp + earnedXp,
         streak: nextStreak,
         lastCompletedDate: shouldUpdateStreak ? today : currentStats.lastCompletedDate,
         completedModuleIds: isAlreadyCompleted
@@ -159,19 +172,21 @@ export default function App() {
   if (screen === 'welcome') {
     return renderFrame(
       <View style={styles.welcomeContent}>
-        <View style={styles.logoBox}><Text style={styles.logoIcon}>↗</Text></View>
+        <View style={styles.logoBox}>
+          <Text style={styles.logoIcon}>↗</Text>
+        </View>
         <Text style={styles.title}>LevelUp English</Text>
         <Text style={styles.subtitle}>Her gün 7 dakikada İngilizce seviyeni geliştir.</Text>
         <View style={styles.heroCard}>
           <Text style={styles.heroEmoji}>🏆</Text>
           <Text style={styles.heroTitle}>Beginner Path</Text>
-          <Text style={styles.heroText}>5 kısa modül, kelime pratiği, mini quizler ve günlük streak.</Text>
+          <Text style={styles.heroText}>10 kısa modül, 50 kelime, mini quizler ve günlük streak.</Text>
         </View>
         <TouchableOpacity style={styles.primaryButton} onPress={() => setScreen('home')}>
           <Text style={styles.primaryButtonText}>Başla →</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => setScreen('home')}>
-          <Text style={styles.secondaryButtonText}>Giriş Yap</Text>
+          <Text style={styles.secondaryButtonText}>Demo Olarak Devam Et</Text>
         </TouchableOpacity>
       </View>
     );
@@ -180,7 +195,9 @@ export default function App() {
   if (screen === 'lesson' && selectedModule && selectedLesson) {
     return renderFrame(
       <ScrollView contentContainerStyle={styles.homeContent}>
-        <TouchableOpacity onPress={() => setScreen('home')}><Text style={styles.backText}>← Home</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setScreen('home')}>
+          <Text style={styles.backText}>← Home</Text>
+        </TouchableOpacity>
         <Text style={styles.screenTitle}>{selectedModule.title}</Text>
         <Text style={styles.screenSubtitle}>{selectedLesson.objective}</Text>
         <Text style={styles.sectionTitle}>Vocabulary</Text>
@@ -205,7 +222,9 @@ export default function App() {
     return renderFrame(
       <View style={styles.quizContent}>
         <View style={styles.quizTopRow}>
-          <TouchableOpacity onPress={() => setScreen('lesson')}><Text style={styles.backText}>← Lesson</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setScreen('lesson')}>
+            <Text style={styles.backText}>← Lesson</Text>
+          </TouchableOpacity>
           <Text style={styles.quizCounter}>{questionIndex + 1} / {moduleQuestions.length}</Text>
         </View>
         <View style={styles.progressBarBackground}>
@@ -233,7 +252,9 @@ export default function App() {
         {isAnswered && (
           <View style={styles.feedbackBox}>
             <Text style={styles.feedbackText}>
-              {selectedAnswer === currentQuestion.answer ? 'Doğru! Harika ilerliyorsun.' : `Yanlış. Doğru cevap: ${currentQuestion.answer}`}
+              {selectedAnswer === currentQuestion.answer
+                ? 'Doğru! Harika ilerliyorsun.'
+                : `Yanlış. Doğru cevap: ${currentQuestion.answer}`}
             </Text>
           </View>
         )}
@@ -246,16 +267,15 @@ export default function App() {
 
   if (screen === 'result' && selectedModule) {
     const scorePercent = Math.round((correctCount / moduleQuestions.length) * 100);
-    const isAlreadyCompleted = stats.completedModuleIds.includes(selectedModule.id);
     return renderFrame(
       <View style={styles.resultContent}>
-        <Text style={styles.heroEmoji}>🎉</Text>
+        <Text style={styles.heroEmoji}>{lastEarnedXp > 0 ? '🎉' : '✅'}</Text>
         <Text style={styles.title}>Quiz Tamamlandı</Text>
         <Text style={styles.subtitle}>{selectedModule.title}</Text>
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>{correctCount} / {moduleQuestions.length} doğru</Text>
           <Text style={styles.heroText}>Başarı oranın: %{scorePercent}</Text>
-          <Text style={styles.moduleXp}>{isAlreadyCompleted ? 'Bu modül tamamlandı' : `+${selectedModule.xp} XP kazandın`}</Text>
+          <Text style={styles.moduleXp}>{lastEarnedXp > 0 ? `+${lastEarnedXp} XP kazandın` : 'Bu modülü daha önce tamamladın'}</Text>
         </View>
         <TouchableOpacity style={styles.primaryButton} onPress={() => setScreen('home')}>
           <Text style={styles.primaryButtonText}>Home'a Dön</Text>
@@ -268,24 +288,21 @@ export default function App() {
     return renderFrame(
       <ScrollView contentContainerStyle={styles.homeContent}>
         <View style={styles.profileHeader}>
-          <View style={styles.avatarCircle}><Text style={styles.avatarText}>O</Text></View>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>O</Text>
+          </View>
           <Text style={styles.screenTitle}>Profil</Text>
           <Text style={styles.screenSubtitle}>Beginner English öğrenme ilerlemen</Text>
         </View>
         <View style={styles.profileSummaryCard}>
           <Text style={styles.profileSummaryTitle}>LevelUp Learner</Text>
           <Text style={styles.profileSummaryText}>
-            {completedCount === 0 ? 'Henüz modül tamamlamadın. İlk dersini bitirerek streak başlat.' : `${completedCount} modül tamamladın ve ${learnedWords} kelime pratiği yaptın.`}
+            {completedCount === 0
+              ? 'Henüz modül tamamlamadın. İlk dersini bitirerek streak başlat.'
+              : `${completedCount} modül tamamladın ve ${learnedWords} kelime pratiği yaptın.`}
           </Text>
         </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}><Text style={styles.cardLabel}>XP</Text><Text style={styles.statValue}>{stats.xp}</Text></View>
-          <View style={styles.statCard}><Text style={styles.cardLabel}>Streak</Text><Text style={styles.statValue}>{stats.streak} 🔥</Text></View>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}><Text style={styles.cardLabel}>Modules</Text><Text style={styles.statValue}>{completedCount}/{modules.length}</Text></View>
-          <View style={styles.statCard}><Text style={styles.cardLabel}>Words</Text><Text style={styles.statValue}>{learnedWords}</Text></View>
-        </View>
+        <StatsGrid stats={stats} completedCount={completedCount} learnedWords={learnedWords} />
         <Text style={styles.sectionTitle}>Modül Durumu</Text>
         {modules.map((module) => {
           const isCompleted = stats.completedModuleIds.includes(module.id);
@@ -315,19 +332,14 @@ export default function App() {
           <Text style={styles.profilePillText}>👤</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}><Text style={styles.cardLabel}>XP</Text><Text style={styles.statValue}>{stats.xp}</Text></View>
-        <View style={styles.statCard}><Text style={styles.cardLabel}>Streak</Text><Text style={styles.statValue}>{stats.streak} 🔥</Text></View>
-      </View>
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}><Text style={styles.cardLabel}>Completed</Text><Text style={styles.statValue}>{completedCount}/{modules.length}</Text></View>
-        <View style={styles.statCard}><Text style={styles.cardLabel}>Words</Text><Text style={styles.statValue}>{learnedWords}</Text></View>
-      </View>
+      <StatsGrid stats={stats} completedCount={completedCount} learnedWords={learnedWords} />
       <View style={styles.progressCard}>
         <Text style={styles.cardLabel}>Öğrenme yolum</Text>
         <Text style={styles.pathTitle}>Beginner English</Text>
         <Text style={styles.progressText}>%{progressPercent} tamamlandı</Text>
-        <View style={styles.progressBarBackground}><View style={[styles.progressBarFill, { width: `${Math.max(progressPercent, 4)}%` }]} /></View>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${Math.max(progressPercent, 4)}%` }]} />
+        </View>
       </View>
       <View style={styles.goalCard}>
         <Text style={styles.goalTitle}>Bugünkü hedefin</Text>
@@ -338,7 +350,9 @@ export default function App() {
         const isCompleted = stats.completedModuleIds.includes(module.id);
         return (
           <TouchableOpacity key={module.id} style={styles.moduleCard} onPress={() => openLesson(module)}>
-            <View style={styles.moduleNumber}><Text style={styles.moduleNumberText}>{isCompleted ? '✓' : index + 1}</Text></View>
+            <View style={styles.moduleNumber}>
+              <Text style={styles.moduleNumberText}>{isCompleted ? '✓' : index + 1}</Text>
+            </View>
             <View style={styles.moduleContent}>
               <Text style={styles.moduleTitle}>{module.title}</Text>
               <Text style={styles.moduleDescription}>{module.description}</Text>
@@ -349,6 +363,33 @@ export default function App() {
       })}
     </ScrollView>,
     true
+  );
+}
+
+function StatsGrid({ stats, completedCount, learnedWords }: { stats: UserStats; completedCount: number; learnedWords: number }) {
+  return (
+    <>
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.cardLabel}>XP</Text>
+          <Text style={styles.statValue}>{stats.xp}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.cardLabel}>Streak</Text>
+          <Text style={styles.statValue}>{stats.streak} 🔥</Text>
+        </View>
+      </View>
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.cardLabel}>Completed</Text>
+          <Text style={styles.statValue}>{completedCount}/{modules.length}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.cardLabel}>Words</Text>
+          <Text style={styles.statValue}>{learnedWords}</Text>
+        </View>
+      </View>
+    </>
   );
 }
 
