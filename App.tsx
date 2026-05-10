@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -29,8 +30,6 @@ const initialStats: UserStats = {
   completedModuleIds: [],
 };
 
-const getLocalStorage = () => (globalThis as any).localStorage;
-
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayKey = () => {
@@ -39,20 +38,18 @@ const getYesterdayKey = () => {
   return date.toISOString().slice(0, 10);
 };
 
-const loadStats = (): UserStats => {
+const loadStats = async (): Promise<UserStats> => {
   try {
-    const storage = getLocalStorage();
-    const rawValue = storage?.getItem?.(STORAGE_KEY);
+    const rawValue = await AsyncStorage.getItem(STORAGE_KEY);
     return rawValue ? { ...initialStats, ...JSON.parse(rawValue) } : initialStats;
   } catch {
     return initialStats;
   }
 };
 
-const saveStats = (stats: UserStats) => {
+const saveStats = async (stats: UserStats) => {
   try {
-    const storage = getLocalStorage();
-    storage?.setItem?.(STORAGE_KEY, JSON.stringify(stats));
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
   } catch {
     // Local persistence is best-effort for this minimal MVP.
   }
@@ -65,14 +62,23 @@ export default function App() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [stats, setStats] = useState<UserStats>(initialStats);
+  const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
   useEffect(() => {
-    setStats(loadStats());
+    const hydrateStats = async () => {
+      const savedStats = await loadStats();
+      setStats(savedStats);
+      setHasLoadedStats(true);
+    };
+
+    hydrateStats();
   }, []);
 
   useEffect(() => {
-    saveStats(stats);
-  }, [stats]);
+    if (hasLoadedStats) {
+      saveStats(stats);
+    }
+  }, [hasLoadedStats, stats]);
 
   const selectedLesson = useMemo(
     () => lessons.find((lesson) => lesson.moduleId === selectedModule?.id),
@@ -146,7 +152,12 @@ export default function App() {
     setSelectedAnswer(null);
   };
 
-  const renderFrame = (children: React.ReactNode) => (
+  const resetProgress = () => {
+    setStats(initialStats);
+    setScreen('home');
+  };
+
+  const renderFrame = (children: ReactNode) => (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <View style={styles.appFrame}>{children}</View>
@@ -366,6 +377,10 @@ export default function App() {
           </TouchableOpacity>
         );
       })}
+
+      <TouchableOpacity style={styles.resetButton} onPress={resetProgress}>
+        <Text style={styles.resetButtonText}>İlerlemeyi Sıfırla</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -438,4 +453,6 @@ const styles = StyleSheet.create({
   feedbackText: { color: TEXT, fontSize: 15, fontWeight: '800' },
   disabledButton: { opacity: 0.45 },
   resultContent: { flex: 1, justifyContent: 'center', padding: 24 },
+  resetButton: { backgroundColor: 'transparent', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#DED8FF' },
+  resetButtonText: { color: MUTED, fontSize: 14, fontWeight: '800' },
 });
